@@ -1,0 +1,82 @@
+data <- read.csv("pcrCT.csv",header = T ,sep = ",")
+data
+ct <- data.frame(experiment = rep(rep(1:4, each=6), 1),data)
+require(plyr)
+ct <- ddply(ct, .(experiment,Sample.Name), function(x) 
+  data.frame(GAPDH=mean(x$GAPDH), 
+             NON1=mean(x$NON1), NON2=mean(x$NON2),
+             NON5=mean(x$NON5),NON7=mean(x$NON7),
+             NON9=mean(x$NON9),NON10=mean(x$NON10)))
+print(ct)
+delta.ct <- ddply(ct, .(experiment,Sample.Name), function(x) 
+  data.frame(NON1=x$NON1-x$GAPDH, 
+             NON2=x$NON2-x$GAPDH,
+             
+             NON5=x$NON5-x$GAPDH,
+             
+             NON7=x$NON7-x$GAPDH,
+             
+             NON9=x$NON9-x$GAPDH,
+             NON10=x$NON10-x$GAPDH
+  ))
+print(delta.ct)
+
+dd.ct <- subset(delta.ct, Sample.Name=="TNF", 
+                select=c(NON1,NON2,NON5,NON7,NON9,NON10)) - 
+  subset(delta.ct, Sample.Name=="CONTROL", 
+         select=c(NON1,NON2,NON5,NON7,NON9,NON10))
+print(dd.ct)
+ratio1 <- 2^(-1*dd.ct)    #ratio1 = TNF - control
+print(ratio1)
+
+dd.ct <- subset(delta.ct, Sample.Name=="T8", 
+                select=c(NON1,NON2,NON5,NON7,NON9,NON10)) - 
+  subset(delta.ct, Sample.Name=="CONTROL", 
+         select=c(NON1,NON2,NON5,NON7,NON9,NON10))
+print(dd.ct)
+ratio2 <- 2^(-1*dd.ct)    #ratio2 = T8 - CONTROL
+ratio2
+
+dd.ct <- subset(delta.ct, Sample.Name=="T8", 
+                select=c(NON1,NON2,NON5,NON7,NON9,NON10)) - 
+  subset(delta.ct, Sample.Name=="TNF", 
+         select=c(NON1,NON2,NON5,NON7,NON9,NON10))
+print(dd.ct)
+ratio3 <- 2^(-1*dd.ct)   #ratio3 = T8 - TNF
+ratio3
+mycolors <- rainbow(24)
+barplot(ratio3,col= "green",cex.axis=.75)
+?barplot
+
+R <- log(ratio3,base = 2)
+library("Cairo")
+library("RColorBrewer")
+CairoPDF("summary.pdf")
+barplot(R,ylim=c(-5,15),main="加用LLDT-8后lncRNA的变化趋势",xlab="基因名称",col = "cyan3",
+        family = "FangSong")
+dev.off()
+#t-test 
+t.test(R[,6])
+
+require(reshape2)
+dd.ctm <- melt(-dd.ct)
+print(dd.ctm)
+dd.cts <- ddply(dd.ctm, .(variable), function(x) 
+  data.frame(mean=mean(x$value), sd=sd(x$value)))
+print(dd.cts)
+
+require(ggplot2)
+library("Cairo")
+pdf("summaryP.pdf")
+p2 <- ggplot(dd.ctm, aes(variable, value, fill=variable, colour=variable))
+p2 <- p2+geom_boxplot(alpha=.3, width=.5)+geom_dotplot(binaxis='y', stackdir='center', dotsize=.3)
+p2 <- p2+theme_bw()+theme(legend.position="none") + xlab("")+ylab(expression(paste("-", Delta, Delta, "Ct")))
+p2 <- p2+theme(axis.text.x=element_text(face="bold", size=14), axis.text.y=element_text(face="bold", size=14), axis.title.y=element_text(size=18, face="bold"))
+p2 <- p2+annotate("text", x=1,y=4, label="p =0.545\n", size=4)
+p2 <- p2+annotate("text", x=2,y=1.5, label="p=0.7648\n", size=4)
+p2 <- p2+annotate("text", x=3,y=-0.7, label="p=0.922\n", size=4)
+p2 <- p2+annotate("text", x=4,y=1.5, label="p=0.7369\n", size=4)
+p2 <- p2+annotate("text", x=5,y=0.6, label="p=0.9126\n", size=4)
+p2 <- p2+annotate("text", x=6,y=2, label="p=0.9875\n", size=4)
+print(p2)
+dev.off()
